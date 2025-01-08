@@ -26,14 +26,14 @@ MSDN Magazine articles
 #include <windows.h>
 
 #include <imagehlp.h>
+#pragma comment(lib, "imagehlp.lib")
 
 #include <winnt.h>
 
+#include "libntldd.h"
+
 #include <string.h>
 #include <stdio.h>
-#include <stdint.h>
-
-#include "libntldd.h"
 
 typedef struct _soff_entry soff_entry;
 
@@ -41,7 +41,7 @@ struct _soff_entry
 {
   DWORD start;
   DWORD end;
-  void *off;
+  char *off;
 };
 
 void *MapPointer (soff_entry *soffs, int soffs_len, DWORD in_ptr, int *section)
@@ -270,7 +270,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
       addrs = (DWORD *) MapPointer (soffs, soffs_len, ied->AddressOfFunctions, NULL);
       ords = (WORD *) MapPointer (soffs, soffs_len, ied->AddressOfNameOrdinals, NULL);
       names = (DWORD *) MapPointer (soffs, soffs_len, ied->AddressOfNames, NULL);
-      for (i = 0; i < ied->NumberOfNames; i++)
+      for (i = 0; ords && i < ied->NumberOfNames; i++)
       {
         self->exports[ords[i]].ordinal = ords[i] + ied->Base;
         if (names[i] != 0)
@@ -280,7 +280,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
             self->exports[ords[i]].name = strdup (s_name);
         }
       }
-      for (i = 0; i < ied->NumberOfFunctions; i++)
+      for (i = 0; addrs && i < ied->NumberOfFunctions; i++)
       {
         if (addrs[i] != 0)
         {
@@ -319,6 +319,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
         for (j = 0; (impaddress = thunk_data_u1_function (ith, j, cfg)) != 0; j++)
         {
           struct ImportTableItem *imp = AddImport (self);
+          if(!imp) continue;
           imp->dll = dll;
           imp->ordinal = -1;
           if (oith)
@@ -445,10 +446,14 @@ int BuildDepTree (BuildTreeConfig* cfg, char *name, struct DepTreeElement *root,
     return 0;
   }
 
+  memset(&loaded_image, 0, sizeof(LOADED_IMAGE));
+
   if (cfg->on_self)
   {
     char modpath[MAX_PATH];
-    success = GetModuleHandleExA (GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, name, &hmod);
+    //success = GetModuleHandleExA (GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, name, &hmod);
+    hmod = GetModuleHandle(name);
+    success = !!hmod;
     if (!success)
       return 1;
     if (GetModuleFileNameA (hmod, modpath, MAX_PATH) == 0)
@@ -479,7 +484,7 @@ int BuildDepTree (BuildTreeConfig* cfg, char *name, struct DepTreeElement *root,
       return 1;
     }
     if (self->resolved_module == NULL)
-      self->resolved_module = strdup (loaded_image.ModuleName);
+      self->resolved_module = strdup (loaded_image.ModuleName ? loaded_image.ModuleName : name);
   }
   if (cfg->machineType == -1)
     cfg->machineType = (int)loaded_image.FileHeader->FileHeader.Machine;
