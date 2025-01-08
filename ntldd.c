@@ -34,6 +34,12 @@ MSDN Magazine articles
 
 #include "libntldd.h"
 
+#ifdef _MSC_VER
+#define I64PF "I64"
+#else
+#define I64PF "ll"
+#endif
+
 void printversion()
 {
   printf ("ntldd %d.%d\n\
@@ -108,8 +114,8 @@ int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int fun
     {
       struct ImportTableItem *item = &self->imports[i];
 
-      printf ("\t%*s%llX %llX %3d %s %s %s\n", depth, depth > 0 ? " " : "", \
-          item->orig_address, item->address, item->ordinal, \
+      printf ("\t%*s%" I64PF "X %" I64PF "X %3d %s %s %s\n", depth, depth > 0 ? " " : "",
+          item->orig_address, item->address, item->ordinal,
           item->name ? item->name : "<NULL>",
           item->mapped ? "" : "<UNRESOLVED>",
           item->dll == NULL ? "<MODULE MISSING>" : item->dll->module ? item->dll->module : "<NULL>");
@@ -177,10 +183,10 @@ int main (int argc, char **argv)
       list_imports = 1;
     else if ((strcmp (argv[i], "-D") == 0 || strcmp (argv[i], "--search-dir") == 0) && i < argc - 1)
     {
-      char* add_dirs = argv[i+1];
+      char *sep, *add_dirs = argv[i+1];
       if (*add_dirs == '"')
           add_dirs++;
-      char* sep = strchr(add_dirs, ';');
+      sep = strchr(add_dirs, ';');
       do {
         if (sep)
             *sep = '\0';
@@ -225,17 +231,19 @@ Try `ntldd --help' for more information\n", argv[i]);
       break;
     }
   }
-
   if (!skip && files_start > 0)
   {
+    int multiple;
+    struct DepTreeElement root;
     files_count = argc - files_start;
     sp.count += files_count;
     sp.path = realloc(sp.path, sp.count * sizeof(char*));
     for (i = 0; i < files_count; ++i)
     {
-      char buff[MAX_PATH] = {};
+      char *p, buff[MAX_PATH];
+      memset(buff, 0, MAX_PATH);
       strcpy(buff, argv[files_start+i]);
-      char* p = strrchr(buff, '\\');
+      p = strrchr(buff, '\\');
       if (!p)
         p = strrchr(buff, '/');
       if (p++)
@@ -243,19 +251,18 @@ Try `ntldd --help' for more information\n", argv[i]);
 
       sp.path[sp.count - files_count + i] = strdup(buff);
     }
-    int multiple = files_start + 1 < argc;
-    struct DepTreeElement root;
+    multiple = files_start + 1 < argc;
     memset (&root, 0, sizeof (struct DepTreeElement));
     for (i = files_start; i < argc; i++)
     {
-      struct DepTreeElement *child = (struct DepTreeElement *) malloc (sizeof (struct DepTreeElement));
-      memset (child, 0, sizeof (struct DepTreeElement));
-      child->module = strdup (argv[i]);
-      AddDep (&root, child);
       char **stack = NULL;
       uint64_t stack_len = 0;
       uint64_t stack_size = 0;
       BuildTreeConfig cfg;
+      struct DepTreeElement *child = (struct DepTreeElement *) malloc (sizeof (struct DepTreeElement));
+      memset (child, 0, sizeof (struct DepTreeElement));
+      child->module = strdup (argv[i]);
+      AddDep (&root, child);
       memset(&cfg, 0, sizeof(cfg));
       cfg.machineType = -1;
       cfg.on_self = 0;
