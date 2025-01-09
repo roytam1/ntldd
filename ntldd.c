@@ -298,6 +298,8 @@ Try `ntldd --help' for more information\r\n", argv[i]);
   if(isWin32s) {
     fclose(fp);
     WinExec("notepad ntldd.txt", SW_NORMAL);
+    Sleep(3000);
+    remove("ntldd.txt");
   }
 
   return 0;
