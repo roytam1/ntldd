@@ -501,7 +501,7 @@ int BuildDepTree (BuildTreeConfig* cfg, char *name, struct DepTreeElement *root,
   for (i = 0; i < img->NumberOfSections; i++)
   {
     soffs[i].start = img->Sections[i].VirtualAddress;
-    soffs[i].end = soffs[i].start + img->Sections[i].Misc.VirtualSize;
+    soffs[i].end = soffs[i].start + (img->Sections[i].Misc.VirtualSize ? img->Sections[i].Misc.VirtualSize : img->Sections[i].SizeOfRawData);
     if (cfg->on_self)
       soffs[i].off = img->MappedAddress/* + img->Sections[i].VirtualAddress*/;
     else if (img->Sections[i].PointerToRawData != 0)
