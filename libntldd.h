@@ -206,6 +206,7 @@ typedef struct BuildTreeConfig_t
     uint64_t *stack_len;
     uint64_t *stack_size;
     int machineType;
+    int isPE32plus;
     SearchPaths* searchPaths;
 } BuildTreeConfig;
 

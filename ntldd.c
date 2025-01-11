@@ -277,6 +277,7 @@ Try `ntldd --help' for more information\r\n", argv[i]);
       memset(&cfg, 0, sizeof(cfg));
       cfg.machineType = -1;
       cfg.on_self = 0;
+      cfg.isPE32plus = 0;
       cfg.datarelocs = datarelocs;
       cfg.recursive = recursive;
       cfg.functionrelocs = functionrelocs;

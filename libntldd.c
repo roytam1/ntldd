@@ -221,7 +221,7 @@ void PopStack (char ***stack, uint64_t *stack_len, uint64_t *stack_size, char *n
 
 static uint64_t thunk_data_u1_function (void *thunk_array, DWORD index, BuildTreeConfig *cfg)
 {
-  if (cfg->machineType == IMAGE_FILE_MACHINE_I386)
+  if (!cfg->isPE32plus)
     return ((IMAGE_THUNK_DATA32 *) thunk_array)[index].u1.Function;
   else
     return ((IMAGE_THUNK_DATA64 *) thunk_array)[index].u1.Function;
@@ -229,7 +229,7 @@ static uint64_t thunk_data_u1_function (void *thunk_array, DWORD index, BuildTre
 
 static void *opt_header_get_dd_entry (void *opt_header, DWORD entry_type, BuildTreeConfig *cfg)
 {
-  if (cfg->machineType == IMAGE_FILE_MACHINE_I386)
+  if (!cfg->isPE32plus)
     return &(((PIMAGE_OPTIONAL_HEADER32) opt_header)->DataDirectory[entry_type]);
   else
     return &(((PIMAGE_OPTIONAL_HEADER64) opt_header)->DataDirectory[entry_type]);
@@ -486,8 +486,11 @@ int BuildDepTree (BuildTreeConfig* cfg, char *name, struct DepTreeElement *root,
     if (self->resolved_module == NULL)
       self->resolved_module = strdup (loaded_image.ModuleName ? loaded_image.ModuleName : name);
   }
-  if (cfg->machineType == -1)
+  if (cfg->machineType == -1) {
+    IMAGE_OPTIONAL_HEADER32 *OptionalHeader = (IMAGE_OPTIONAL_HEADER32 *)((char *)loaded_image.FileHeader + sizeof(IMAGE_FILE_HEADER) + sizeof(DWORD));
     cfg->machineType = (int)loaded_image.FileHeader->FileHeader.Machine;
+    cfg->isPE32plus = OptionalHeader->Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC;
+  }
   img = &loaded_image;
 
   PushStack (cfg->stack, cfg->stack_len, cfg->stack_size, name);
