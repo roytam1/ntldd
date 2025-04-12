@@ -9,7 +9,7 @@ typedef __int64 int64_t;
 #endif
 #include <windows.h>
 
-#if defined(_MSC_VER) && _MSC_VER < 1300
+#if defined(_MSC_VER) && _MSC_VER < 1500
 typedef struct _IMAGE_DELAYLOAD_DESCRIPTOR
 {
     union
