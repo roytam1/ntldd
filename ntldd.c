@@ -112,6 +112,7 @@ int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int fun
 
   if (list_imports)
   {
+    if(first) first=0;
     for (i = 0; i < self->imports_len; i++)
     {
       struct ImportTableItem *item = &self->imports[i];
