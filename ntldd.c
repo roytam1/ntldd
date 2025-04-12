@@ -40,7 +40,7 @@ MSDN Magazine articles
 #define I64PF "ll"
 #endif
 
-FILE *fp = (FILE*)stdout;
+FILE *fp;
 
 void printversion()
 {
@@ -161,6 +161,8 @@ int main (int argc, char **argv)
   SearchPaths sp;
   memset(&sp, 0, sizeof (sp));
   sp.path = calloc (1, sizeof (char*));
+
+  fp = (FILE*)stdout;
 
   winver = GetVersion();
   isWin32s = ((winver > 0x80000000) && (LOBYTE(LOWORD(winver)) == 3));
