@@ -156,11 +156,13 @@ struct DepTreeElement *ProcessDep (BuildTreeConfig* cfg, soff_entry *soffs, int 
   char *dllname = (char *) MapPointer (soffs, soffs_len, name, NULL);
   if (dllname == NULL)
     return NULL;
+#if 0
   if (strlen (dllname) > 10 && strnicmp ("api-ms-win", dllname, 10) == 0)
   {
     /* TODO: find a better way to identify api stubs. Versioninfo, maybe? */
     return NULL;
   }
+#endif
   for (i = (int64_t)*cfg->stack_len - 1; i >= 0; i--)
   {
     if ((*cfg->stack)[i] && stricmp ((*cfg->stack)[i], dllname) == 0)
