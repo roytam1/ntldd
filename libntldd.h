@@ -164,6 +164,7 @@ struct ImportTableItem
   uint64_t address;
   char *name;
   int ordinal;
+  int is_delayed;
   struct DepTreeElement *dll;
   struct ExportTableItem *mapped;
 };

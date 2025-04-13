@@ -117,11 +117,12 @@ int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int fun
     {
       struct ImportTableItem *item = &self->imports[i];
 
-      fprintf (fp,"\t%*s%" I64PF "X %" I64PF "X %3d %s%s %s\r\n", depth, depth > 0 ? " " : "",
+      fprintf (fp,"\t%*s%" I64PF "X %" I64PF "X %3d %s%s %s%s\r\n", depth, depth > 0 ? " " : "",
           item->orig_address, item->address, item->ordinal,
           item->mapped ? "" : "<UNRESOLVED>",
           item->dll == NULL ? "<MODULE MISSING>" : item->dll->module ? item->dll->module : "<NULL>",
-          item->name ? item->name : (item->ordinal != -1 ? "(imported by ordinal)" : "<NULL>"));
+          item->name ? item->name : (item->ordinal != -1 ? "(imported by ordinal)" : "<NULL>"),
+          item->is_delayed ? " (delayed)" : "");
     }
   }
 
