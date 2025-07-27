@@ -87,8 +87,13 @@ int FindSectionByRawData (LOADED_IMAGE *img, DWORD address)
 
 void ResizeArray (void **data, uint64_t *data_size, size_t sizeof_data)
 {
-  uint64_t new_size = (*data_size) > 0 ? (*data_size) * 2 : 64;
+#ifdef _MIPS_
+  size_t new_size;
+#else
+  uint64_t new_size;
+#endif
   void *new_data;
+  new_size = (*data_size) > 0 ? (*data_size) * 2 : 64;
   new_data = realloc (*data, new_size * sizeof_data);
   memset (((unsigned char *) new_data) + (*data_size * sizeof_data), 0, (new_size - (*data_size)) * sizeof_data);
   *data = new_data;
@@ -224,9 +229,9 @@ void PopStack (char ***stack, uint64_t *stack_len, uint64_t *stack_size, char *n
 static uint64_t thunk_data_u1_function (void *thunk_array, DWORD index, BuildTreeConfig *cfg)
 {
   if (!cfg->isPE32plus)
-    return ((IMAGE_THUNK_DATA32 *) thunk_array)[index].u1.Function;
+    return (uint64_t)((IMAGE_THUNK_DATA32 *) thunk_array)[index].u1.Function;
   else
-    return ((IMAGE_THUNK_DATA64 *) thunk_array)[index].u1.Function;
+    return (uint64_t)((IMAGE_THUNK_DATA64 *) thunk_array)[index].u1.Function;
 }
 
 static void *opt_header_get_dd_entry (void *opt_header, DWORD entry_type, BuildTreeConfig *cfg)
