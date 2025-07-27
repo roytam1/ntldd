@@ -44,33 +44,33 @@ FILE *fp;
 
 void printversion()
 {
-  fprintf (fp,"ntldd %d.%d\r\n\
-Copyright (C) 2010-2015 LRN\r\n\
-Copyright (C) 2025 Roy Tam (roytam1)\r\n\
-This is free software; see the source for conditions. There is NO\r\n\
-warranty; not event for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\r\n\
+  fprintf (fp,"ntldd %d.%d\n\
+Copyright (C) 2010-2015 LRN\n\
+Copyright (C) 2025 Roy Tam (roytam1)\n\
+This is free software; see the source for conditions. There is NO\n\
+warranty; not event for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\
 Written by LRN.", NTLDD_VERSION_MAJOR, NTLDD_VERSION_MINOR);
 }
 
 void printhelp(char *argv0)
 {
-  fprintf(fp,"Usage: %s [OPTION]... FILE...\r\n\
-OPTIONS:\r\n\
---version         Displays version\r\n\
--v, --verbose         Does not work\r\n\
--u, --unused          Does not work\r\n\
--d, --data-relocs     Does not work\r\n\
--r, --function-relocs Does not work\r\n\
--R, --recursive       Lists dependencies recursively,\r\n\
-                        eliminating duplicates\r\n\
--D, --search-dir      Additional search directory\r\n\
--e, --list-exports    Lists exports of a module (single file only)\r\n\
--i, --list-imports    Lists imports of modules\r\n\
---def-output          Print exports in DEF format\r\n\
---help                Displays this message\r\n\
-\r\n\
-Use -- option to pass filenames that start with `--' or `-'\r\n\
-For bug reporting instructions, please see:\r\n\
+  fprintf(fp,"Usage: %s [OPTION]... FILE...\n\
+OPTIONS:\n\
+--version         Displays version\n\
+-v, --verbose         Does not work\n\
+-u, --unused          Does not work\n\
+-d, --data-relocs     Does not work\n\
+-r, --function-relocs Does not work\n\
+-R, --recursive       Lists dependencies recursively,\n\
+                        eliminating duplicates\n\
+-D, --search-dir      Additional search directory\n\
+-e, --list-exports    Lists exports of a module (single file only)\n\
+-i, --list-imports    Lists imports of modules\n\
+--def-output          Print exports in DEF format\n\
+--help                Displays this message\n\
+\n\
+Use -- option to pass filenames that start with `--' or `-'\n\
+For bug reporting instructions, please see:\n\
 <somewhere>.", argv0);
 }
 
@@ -89,13 +89,13 @@ int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int fun
 
   if (def_output)
   {
-    fprintf (fp, "LIBRARY %s\r\n\r\n\
-EXPORTS\r\n", mybasename(self->module));
+    fprintf (fp, "LIBRARY %s\n\n\
+EXPORTS\n", mybasename(self->module));
     for (i = 0; i < self->exports_len; i++)
     {
       struct ExportTableItem *item = &self->exports[i];
 
-      fprintf (fp,"%s\r\n", item->name);
+      fprintf (fp,"%s\n", item->name);
     }
     return 0;
   }
@@ -105,7 +105,7 @@ EXPORTS\r\n", mybasename(self->module));
     {
       struct ExportTableItem *item = &self->exports[i];
 
-      fprintf (fp,"%*s[%u] %s (0x%lx)%s%s <%d>\r\n", depth, depth > 0 ? " " : "", \
+      fprintf (fp,"%*s[%u] %s (0x%lx)%s%s <%d>\n", depth, depth > 0 ? " " : "", \
           item->ordinal, item->name, item->address_offset, \
           item->forward_str ? " ->" : "", \
           item->forward_str ? item->forward_str : "",
@@ -116,18 +116,18 @@ EXPORTS\r\n", mybasename(self->module));
   if (self->flags & DEPTREE_UNRESOLVED)  
   {
     if (!first)
-      fprintf (fp," => not found\r\n");
+      fprintf (fp," => not found\n");
     else
-      fprintf (fp, "%s: not found\r\n", self->module);
+      fprintf (fp, "%s: not found\n", self->module);
     unresolved = 1;
   }
 
   if (!unresolved && !first && !def_output)
   {
     if (stricmp (self->module, self->resolved_module) == 0)
-      fprintf (fp," (0x%p)\r\n", self->mapped_address);
+      fprintf (fp," (0x%p)\n", self->mapped_address);
     else
-      fprintf (fp," => %s (0x%p)\r\n", self->resolved_module,
+      fprintf (fp," => %s (0x%p)\n", self->resolved_module,
           self->mapped_address);
   }
 
@@ -138,7 +138,7 @@ EXPORTS\r\n", mybasename(self->module));
     {
       struct ImportTableItem *item = &self->imports[i];
 
-      fprintf (fp,"\t%*s%" I64PF "X %" I64PF "X %3d %s%s %s%s\r\n", depth, depth > 0 ? " " : "",
+      fprintf (fp,"\t%*s%" I64PF "X %" I64PF "X %3d %s%s %s%s\n", depth, depth > 0 ? " " : "",
           item->orig_address, item->address, item->ordinal,
           item->mapped ? "" : "<UNRESOLVED>",
           item->dll == NULL ? "<MODULE MISSING>" : item->dll->module ? item->dll->module : "<NULL>",
@@ -192,7 +192,7 @@ int main (int argc, char **argv)
   isWin32s = ((winver > 0x80000000) && (LOBYTE(LOWORD(winver)) == 3));
 
   if(isWin32s) {
-    fp = fopen("ntldd.txt","wb");
+    fp = fopen("ntldd.txt","w");
   }
 
   for (i = 1; i < argc; i++)
@@ -258,8 +258,8 @@ int main (int argc, char **argv)
     else if (strlen (argv[i]) > 1 && argv[i][0] == '-' && (argv[i][1] == '-' ||
         strlen (argv[i]) == 2) && !files)
     {
-      fprintf (fp, "Unrecognized option `%s'\r\n\
-Try `ntldd --help' for more information\r\n", argv[i]);
+      fprintf (fp, "Unrecognized option `%s'\n\
+Try `ntldd --help' for more information\n", argv[i]);
       skip = 1;
       break;
     }
@@ -319,7 +319,7 @@ Try `ntldd --help' for more information\r\n", argv[i]);
     for (i = files_start; i < argc; i++)
     {
       if (multiple)
-        fprintf (fp,"%s:\r\n", argv[i]);
+        fprintf (fp,"%s:\n", argv[i]);
       PrintImageLinks (1, verbose, unused, datarelocs, functionrelocs, root.childs[i - files_start], recursive, list_exports, def_output, list_imports, 0);
     }
   }
