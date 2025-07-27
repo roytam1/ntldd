@@ -65,6 +65,7 @@ OPTIONS:\r\n\
 -D, --search-dir      Additional search directory\r\n\
 -e, --list-exports    Lists exports of a module (single file only)\r\n\
 -i, --list-imports    Lists imports of modules\r\n\
+--def-output          Print exports in DEF format\r\n\
 --help                Displays this message\r\n\
 \r\n\
 Use -- option to pass filenames that start with `--' or `-'\r\n\
@@ -72,13 +73,32 @@ For bug reporting instructions, please see:\r\n\
 <somewhere>.", argv0);
 }
 
-int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int functionrelocs, struct DepTreeElement *self, int recursive, int list_exports, int list_imports, int depth)
+char* mybasename(char* path)
+{
+    char *mybase = strrchr(path, '\\');
+    mybase = mybase ? mybase+1 : path;
+    return mybase;
+}
+
+int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int functionrelocs, struct DepTreeElement *self, int recursive, int list_exports, int def_output, int list_imports, int depth)
 {
   uint64_t i;
   int unresolved = 0;
   self->flags |= DEPTREE_VISITED;
 
-  if (list_exports)
+  if (def_output)
+  {
+    fprintf (fp, "LIBRARY %s\r\n\r\n\
+EXPORTS\r\n", mybasename(self->module));
+    for (i = 0; i < self->exports_len; i++)
+    {
+      struct ExportTableItem *item = &self->exports[i];
+
+      fprintf (fp,"%s\r\n", item->name);
+    }
+    return 0;
+  }
+  else if (list_exports)
   {
     for (i = 0; i < self->exports_len; i++)
     {
@@ -101,7 +121,7 @@ int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int fun
     unresolved = 1;
   }
 
-  if (!unresolved && !first)
+  if (!unresolved && !first && !def_output)
   {
     if (stricmp (self->module, self->resolved_module) == 0)
       fprintf (fp," (0x%p)\r\n", self->mapped_address);
@@ -110,7 +130,7 @@ int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int fun
           self->mapped_address);
   }
 
-  if (list_imports)
+  if (list_imports && !def_output)
   {
     if(first) first=0;
     for (i = 0; i < self->imports_len; i++)
@@ -136,7 +156,7 @@ int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int fun
       if (!(self->childs[i]->flags & DEPTREE_VISITED))
       {
         fprintf (fp,"\t%*s%s", depth, depth > 0 ? " " : "", self->childs[i]->module);
-        PrintImageLinks (0, verbose, unused, datarelocs, functionrelocs, self->childs[i], recursive, list_exports, list_imports, depth + 1);
+        PrintImageLinks (0, verbose, unused, datarelocs, functionrelocs, self->childs[i], recursive, list_exports, def_output, list_imports, depth + 1);
       }
     }
   }
@@ -155,6 +175,7 @@ int main (int argc, char **argv)
   int recursive = 0;
   int list_exports = 0;
   int list_imports = 0;
+  int def_output = 0;
   int files_start = -1;
   int files_count = 0;
 
@@ -196,6 +217,8 @@ int main (int argc, char **argv)
     else if (strcmp (argv[i], "-i") == 0 || 
         strcmp (argv[i], "--list-imports") == 0)
       list_imports = 1;
+    else if (strcmp (argv[i], "--def-output") == 0)
+      def_output = 1;
     else if ((strcmp (argv[i], "-D") == 0 || strcmp (argv[i], "--search-dir") == 0) && i < argc - 1)
     {
       char *sep, *add_dirs = argv[i+1];
@@ -296,7 +319,7 @@ Try `ntldd --help' for more information\r\n", argv[i]);
     {
       if (multiple)
         fprintf (fp,"%s:\r\n", argv[i]);
-      PrintImageLinks (1, verbose, unused, datarelocs, functionrelocs, root.childs[i - files_start], recursive, list_exports, list_imports, 0);
+      PrintImageLinks (1, verbose, unused, datarelocs, functionrelocs, root.childs[i - files_start], recursive, list_exports, def_output, list_imports, 0);
     }
   }
 
