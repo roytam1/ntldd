@@ -46,6 +46,7 @@ void printversion()
 {
   fprintf (fp,"ntldd %d.%d\r\n\
 Copyright (C) 2010-2015 LRN\r\n\
+Copyright (C) 2025 Roy Tam (roytam1)\r\n\
 This is free software; see the source for conditions. There is NO\r\n\
 warranty; not event for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\r\n\
 Written by LRN.", NTLDD_VERSION_MAJOR, NTLDD_VERSION_MINOR);
