@@ -63,8 +63,8 @@ OPTIONS:\r\n\
 -R, --recursive       Lists dependencies recursively,\r\n\
                         eliminating duplicates\r\n\
 -D, --search-dir      Additional search directory\r\n\
---list-exports        Lists exports of a module (single file only)\r\n\
---list-imports        Lists imports of modules\r\n\
+-e, --list-exports    Lists exports of a module (single file only)\r\n\
+-i, --list-imports    Lists imports of modules\r\n\
 --help                Displays this message\r\n\
 \r\n\
 Use -- option to pass filenames that start with `--' or `-'\r\n\
