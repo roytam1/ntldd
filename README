@@ -16,3 +16,5 @@ Cons:
  * Does not mimic ldd completely
 
 Run makeldd.cmd to compile. Requires GCC and win32api MinGW packages.
+
+For MSVC builds, run mk.bat will do.
