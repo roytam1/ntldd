@@ -42,21 +42,42 @@ MSDN Magazine articles
 
 FILE *fp;
 
-void printversion()
+void printversion(int print_copyright)
 {
-  fprintf (fp,"ntldd %d.%d\n\
-Copyright (C) 2010-2015 LRN\n\
+  char *platform = "unknown";
+#if defined(_M_AMD64) || defined(_M_X64)
+  platform = "x86-64";
+#elif defined(_M_IA64)
+  platform = "IA64";
+#elif defined(_M_IX86)
+  platform = "x86";
+#elif defined(_M_MRX000) || defined(_MIPS_)
+  platform = "MIPS";
+#elif defined(_M_ARM64)
+  platform = "ARM64";
+#elif defined(_M_ARM)
+  platform = "ARM";
+#elif defined(_M_ALPHA) && defined(WIN64)
+  platform = "Alpha64";
+#elif defined(_M_ALPHA)
+  platform = "Alpha";
+#elif defined(_M_PPC)
+  platform = "PPC";
+#endif
+  fprintf (fp,"ntldd (%s) %d.%d\n\n", platform, NTLDD_VERSION_MAJOR, NTLDD_VERSION_MINOR);
+  if(print_copyright)
+    fprintf (fp,"Copyright (C) 2010-2015 LRN\n\
 Copyright (C) 2025 Roy Tam (roytam1)\n\
 This is free software; see the source for conditions. There is NO\n\
 warranty; not event for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\
-Written by LRN.", NTLDD_VERSION_MAJOR, NTLDD_VERSION_MINOR);
+Written by LRN.");
 }
 
 void printhelp(char *argv0)
 {
   fprintf(fp,"Usage: %s [OPTION]... FILE...\n\
 OPTIONS:\n\
---version         Displays version\n\
+--version             Displays version\n\
 -v, --verbose         Does not work\n\
 -u, --unused          Does not work\n\
 -d, --data-relocs     Does not work\n\
@@ -198,7 +219,7 @@ int main (int argc, char **argv)
   for (i = 1; i < argc; i++)
   {
     if (strcmp (argv[i], "--version") == 0)
-      printversion ();
+      printversion (1);
     else if (strcmp (argv[i], "-v") == 0 || strcmp (argv[i], "--verbose") == 0)
       verbose = 1;
     else if (strcmp (argv[i], "-u") == 0 || strcmp (argv[i], "--unused") == 0)
