@@ -268,6 +268,7 @@ int main (int argc, char **argv)
     }
     else if (strcmp (argv[i], "--help") == 0)
     {
+      printversion (0);
       printhelp (argv[0]);
       skip = 1;
       break;
