@@ -439,13 +439,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
           {
             imp->ordinal = imp->orig_address & ~(1 << (sizeof (DWORD) * 8 - 1));
           }
-          else if (oith)
-          {
-            IMAGE_IMPORT_BY_NAME *byname = (IMAGE_IMPORT_BY_NAME *) MapPointer (soffs, soffs_len, imp->orig_address, NULL);
-            if (byname != NULL)
-              imp->name = strdup ((char *) byname->Name);
-          }
-          else if (ith)
+          else if (oith||ith)
           {
             IMAGE_IMPORT_BY_NAME *byname = (IMAGE_IMPORT_BY_NAME *) MapPointer (soffs, soffs_len, imp->orig_address, NULL);
             if (byname != NULL)
