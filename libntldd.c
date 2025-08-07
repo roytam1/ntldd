@@ -26,7 +26,6 @@ MSDN Magazine articles
 #include <windows.h>
 
 #include <imagehlp.h>
-#pragma comment(lib, "imagehlp.lib")
 
 #include <winnt.h>
 
@@ -34,6 +33,104 @@ MSDN Magazine articles
 
 #include <string.h>
 #include <stdio.h>
+
+/* imagehlp functions from ReactOS */
+PIMAGE_NT_HEADERS RosRtlImageNtHeader(void *data)
+{
+    PIMAGE_DOS_HEADER DosHeader = (PIMAGE_DOS_HEADER)data;
+    PIMAGE_NT_HEADERS NtHeaders;
+    PCHAR NtHeaderPtr;
+    if (DosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+        return NULL;
+    NtHeaderPtr = ((PCHAR)data) + DosHeader->e_lfanew;
+    NtHeaders = (PIMAGE_NT_HEADERS)NtHeaderPtr;
+    if (NtHeaders->Signature != IMAGE_NT_SIGNATURE)
+        return NULL;
+    return NtHeaders;
+}
+
+BOOL WINAPI RosMapAndLoad(PCSTR pszImageName, PCSTR pszDllPath, PLOADED_IMAGE pLoadedImage,
+                       BOOL bDotDll, BOOL bReadOnly)
+{
+    CHAR szFileName[MAX_PATH];
+    HANDLE hFile = INVALID_HANDLE_VALUE;
+    HANDLE hFileMapping = NULL;
+    PVOID mapping = NULL;
+    PIMAGE_NT_HEADERS pNtHeader = NULL;
+
+    if (!SearchPathA(pszDllPath, pszImageName, bDotDll ? ".DLL" : ".EXE",
+                     sizeof(szFileName), szFileName, NULL))
+    {
+        SetLastError(ERROR_FILE_NOT_FOUND);
+        goto Error;
+    }
+
+    hFile = CreateFileA(szFileName,
+                        GENERIC_READ | (bReadOnly ? 0 : GENERIC_WRITE),
+                        FILE_SHARE_READ,
+                        NULL, OPEN_EXISTING, 0, NULL);
+    if (hFile == INVALID_HANDLE_VALUE)
+    {
+        goto Error;
+    }
+
+    hFileMapping = CreateFileMappingA(hFile, NULL,
+                                      (bReadOnly ? PAGE_READONLY : PAGE_READWRITE) | SEC_COMMIT,
+                                      0, 0, NULL);
+    if (!hFileMapping)
+    {
+        goto Error;
+    }
+
+    mapping = MapViewOfFile(hFileMapping, bReadOnly ? FILE_MAP_READ : FILE_MAP_WRITE, 0, 0, 0);
+    CloseHandle(hFileMapping);
+    if (!mapping)
+    {
+        goto Error;
+    }
+
+    if (!(pNtHeader = RosRtlImageNtHeader(mapping)))
+    {
+        UnmapViewOfFile(mapping);
+        goto Error;
+    }
+
+    pLoadedImage->ModuleName       = HeapAlloc(GetProcessHeap(), 0,
+                                               strlen(szFileName) + 1);
+    if (pLoadedImage->ModuleName) strcpy(pLoadedImage->ModuleName, szFileName);
+    pLoadedImage->hFile            = hFile;
+    pLoadedImage->MappedAddress    = mapping;
+    pLoadedImage->FileHeader       = pNtHeader;
+    pLoadedImage->Sections         = (PIMAGE_SECTION_HEADER)
+        ((LPBYTE) &pNtHeader->OptionalHeader +
+         pNtHeader->FileHeader.SizeOfOptionalHeader);
+    pLoadedImage->NumberOfSections = pNtHeader->FileHeader.NumberOfSections;
+    pLoadedImage->SizeOfImage      = GetFileSize(hFile, NULL);
+    pLoadedImage->Characteristics  = pNtHeader->FileHeader.Characteristics;
+    pLoadedImage->LastRvaSection   = pLoadedImage->Sections;
+
+    pLoadedImage->fSystemImage     = FALSE; /* FIXME */
+    pLoadedImage->fDOSImage        = FALSE; /* FIXME */
+
+    pLoadedImage->Links.Flink      = &pLoadedImage->Links;
+    pLoadedImage->Links.Blink      = &pLoadedImage->Links;
+
+    return TRUE;
+
+Error:
+    if (hFile != INVALID_HANDLE_VALUE) CloseHandle(hFile);
+    return FALSE;
+}
+
+BOOL WINAPI RosUnMapAndLoad(PLOADED_IMAGE pLoadedImage)
+{
+    HeapFree(GetProcessHeap(), 0, pLoadedImage->ModuleName);
+    /* FIXME: MSDN states that a new checksum is computed and stored into the file */
+    if (pLoadedImage->MappedAddress) UnmapViewOfFile(pLoadedImage->MappedAddress);
+    if (pLoadedImage->hFile != INVALID_HANDLE_VALUE) CloseHandle(pLoadedImage->hFile);
+    return TRUE;
+}
+/* end of imagehlp functions from ReactOS */
 
 typedef struct _soff_entry soff_entry;
 
@@ -435,12 +532,12 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
 
 BOOL TryMapAndLoad (PCSTR name, PCSTR path, PLOADED_IMAGE loadedImage, int requiredMachineType)
 {
-    BOOL success = MapAndLoad (name, path, loadedImage, FALSE, TRUE);
+    BOOL success = RosMapAndLoad (name, path, loadedImage, FALSE, TRUE);
     if (!success && GetLastError () == ERROR_FILE_NOT_FOUND)
-        success = MapAndLoad (name, path, loadedImage, TRUE, TRUE);
+        success = RosMapAndLoad (name, path, loadedImage, TRUE, TRUE);
     if (success && requiredMachineType != -1 && (int)loadedImage->FileHeader->FileHeader.Machine != requiredMachineType)
     {
-        UnMapAndLoad (loadedImage);
+        RosUnMapAndLoad (loadedImage);
         return FALSE;
     }
     return success;
@@ -538,7 +635,7 @@ int BuildDepTree (BuildTreeConfig* cfg, char *name, struct DepTreeElement *root,
   free (soffs);
 
   if (!cfg->on_self)
-    UnMapAndLoad (&loaded_image);
+    RosUnMapAndLoad (&loaded_image);
 
   /* Not sure if a forwarded export warrants an import. If it doesn't, then the dll to which the export is forwarded will NOT
    * be among the dependencies of this dll and it will be necessary to do yet another ProcessDep...
