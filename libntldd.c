@@ -75,7 +75,7 @@ BOOL WINAPI RosMapAndLoad(PCSTR pszImageName, PCSTR pszDllPath, PLOADED_IMAGE pL
     }
 
     hFileMapping = CreateFileMappingA(hFile, NULL,
-                                      (bReadOnly ? PAGE_READONLY : PAGE_READWRITE) | SEC_COMMIT,
+                                      (bReadOnly ? PAGE_READONLY : PAGE_READWRITE) /*| SEC_COMMIT*/,
                                       0, 0, NULL);
     if (!hFileMapping)
     {
@@ -95,7 +95,7 @@ BOOL WINAPI RosMapAndLoad(PCSTR pszImageName, PCSTR pszDllPath, PLOADED_IMAGE pL
         goto Error;
     }
 
-    pLoadedImage->ModuleName       = HeapAlloc(GetProcessHeap(), 0,
+    pLoadedImage->ModuleName       = GlobalAlloc(GMEM_ZEROINIT|GMEM_FIXED,
                                                strlen(szFileName) + 1);
     if (pLoadedImage->ModuleName) strcpy(pLoadedImage->ModuleName, szFileName);
     pLoadedImage->hFile            = hFile;
@@ -124,7 +124,7 @@ Error:
 
 BOOL WINAPI RosUnMapAndLoad(PLOADED_IMAGE pLoadedImage)
 {
-    HeapFree(GetProcessHeap(), 0, pLoadedImage->ModuleName);
+    GlobalFree(pLoadedImage->ModuleName);
     /* FIXME: MSDN states that a new checksum is computed and stored into the file */
     if (pLoadedImage->MappedAddress) UnmapViewOfFile(pLoadedImage->MappedAddress);
     if (pLoadedImage->hFile != INVALID_HANDLE_VALUE) CloseHandle(pLoadedImage->hFile);

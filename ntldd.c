@@ -309,7 +309,7 @@ Try `ntldd --help' for more information\n", argv[i]);
       if (p++)
         *p = '\0';
 
-      sp.path[sp.count - files_count + i] = strdup(buff);
+      //sp.path[sp.count - files_count + i] = strdup(buff);
     }
     multiple = files_start + 1 < argc;
     memset (&root, 0, sizeof (struct DepTreeElement));
