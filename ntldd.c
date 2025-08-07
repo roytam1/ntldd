@@ -302,14 +302,10 @@ Try `ntldd --help' for more information\n", argv[i]);
     {
       char *p, buff[MAX_PATH];
       memset(buff, 0, MAX_PATH);
-      strcpy(buff, argv[files_start+i]);
-      p = strrchr(buff, '\\');
-      if (!p)
-        p = strrchr(buff, '/');
-      if (p++)
-        *p = '\0';
+      GetFullPathNameA(argv[files_start+i], MAX_PATH, buff, &p);
+      *p = '\0';
 
-      //sp.path[sp.count - files_count + i] = strdup(buff);
+      sp.path[sp.count - files_count + i] = strdup(buff);
     }
     multiple = files_start + 1 < argc;
     memset (&root, 0, sizeof (struct DepTreeElement));
