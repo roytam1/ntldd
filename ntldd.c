@@ -97,9 +97,9 @@ For bug reporting instructions, please see:\n\
 
 char* mybasename(char* path)
 {
-    char *mybase = strrchr(path, '\\');
-    mybase = mybase ? mybase+1 : path;
-    return mybase;
+    char fullpath[MAX_PATH], *p;
+    GetFullPathNameA(path, MAX_PATH, fullpath, &p);
+    return p;
 }
 
 int PrintImageLinks (int first, int verbose, int unused, int datarelocs, int functionrelocs, struct DepTreeElement *self, int recursive, int list_exports, int def_output, int list_imports, int depth)
