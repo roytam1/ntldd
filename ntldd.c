@@ -228,22 +228,22 @@ int main (int argc, char **argv)
 
   hKernel = GetModuleHandle(TEXT("kernel32.dll"));
   pIsWow64Func = (tW64P) GetProcAddress(hKernel, "IsWow64Process");
+  pGetSystemWow64DirectoryA = (tGetSystemWow64DirectoryA) GetProcAddress(hKernel, "GetSystemWow64DirectoryA");
+
+  if (pGetSystemWow64DirectoryA) {
+    char* SysWow64Dir[MAX_PATH];
+    if(pGetSystemWow64DirectoryA((LPSTR)SysWow64Dir, MAX_PATH)) { // Get SysWow64 path
+      sp.count ++;
+      sp.path = (char**) realloc(sp.path, sp.count * sizeof(char*));
+      sp.path[sp.count - 1] = strdup((char*) SysWow64Dir);
+    }
+  }
 
   if (pIsWow64Func) {
     pIsWow64Func(GetCurrentProcess(), &bIsWow64);
     if (bIsWow64) {
       pDisableFunc = (tFSDisable) GetProcAddress(hKernel, "Wow64DisableWow64FsRedirection");
       pRevertFunc = (tFSRevert) GetProcAddress(hKernel, "Wow64RevertWow64FsRedirection");
-      pGetSystemWow64DirectoryA = (tGetSystemWow64DirectoryA) GetProcAddress(hKernel, "GetSystemWow64DirectoryA");
-
-      if (pGetSystemWow64DirectoryA) {
-        char* SysWow64Dir[MAX_PATH];
-        pGetSystemWow64DirectoryA((LPSTR)SysWow64Dir, MAX_PATH); // Get SysWow64 path
-
-        sp.count ++;
-        sp.path = (char**) realloc(sp.path, sp.count * sizeof(char*));
-        sp.path[sp.count - 1] = strdup((char*) SysWow64Dir);
-      }
     }
 
     if ((pDisableFunc) && (pRevertFunc)) {
