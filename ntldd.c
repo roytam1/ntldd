@@ -40,6 +40,18 @@ MSDN Magazine articles
 #define I64PF "ll"
 #endif
 
+typedef BOOL (WINAPI *tW64P)(HANDLE, PBOOL);
+typedef BOOL (WINAPI *tFSDisable)(PVOID*);
+typedef BOOL (WINAPI *tFSRevert)(PVOID);
+typedef UINT (WINAPI *tGetSystemWow64DirectoryA)(LPSTR, UINT);
+
+tW64P pIsWow64Func = NULL;
+tFSDisable pDisableFunc = NULL;
+tFSRevert pRevertFunc = NULL;
+tGetSystemWow64DirectoryA pGetSystemWow64DirectoryA = NULL;
+
+BOOL bIsWow64 = FALSE;
+
 FILE *fp;
 
 void printversion(int print_copyright)
@@ -202,15 +214,42 @@ int main (int argc, char **argv)
   int files_count = 0;
 
   DWORD winver, isWin32s;
+  HMODULE hKernel;
+  PVOID oldValue;
 
   SearchPaths sp;
   memset(&sp, 0, sizeof (sp));
-  sp.path = calloc (1, sizeof (char*));
+  sp.path = (char**) calloc (1, sizeof (char*));
 
   fp = (FILE*)stdout;
 
   winver = GetVersion();
   isWin32s = ((winver > 0x80000000) && (LOBYTE(LOWORD(winver)) == 3));
+
+  hKernel = GetModuleHandle(TEXT("kernel32.dll"));
+  pIsWow64Func = (tW64P) GetProcAddress(hKernel, "IsWow64Process");
+
+  if (pIsWow64Func) {
+    pIsWow64Func(GetCurrentProcess(), &bIsWow64);
+    if (bIsWow64) {
+      pDisableFunc = (tFSDisable) GetProcAddress(hKernel, "Wow64DisableWow64FsRedirection");
+      pRevertFunc = (tFSRevert) GetProcAddress(hKernel, "Wow64RevertWow64FsRedirection");
+      pGetSystemWow64DirectoryA = (tGetSystemWow64DirectoryA) GetProcAddress(hKernel, "GetSystemWow64DirectoryA");
+
+      if (pGetSystemWow64DirectoryA) {
+        char* SysWow64Dir[MAX_PATH];
+        pGetSystemWow64DirectoryA(SysWow64Dir, MAX_PATH); // Get SysWow64 path
+
+        sp.count ++;
+        sp.path = realloc(sp.path, sp.count * sizeof(char*));
+        sp.path[sp.count - 1] = strdup(SysWow64Dir);
+      }
+    }
+
+    if ((pDisableFunc) && (pRevertFunc)) {
+      pDisableFunc(&oldValue); // Turn off the file system redirector
+    }
+  }
 
   if(isWin32s) {
     fp = fopen("ntldd.txt","w");
@@ -340,6 +379,10 @@ Try `ntldd --help' for more information\n", argv[i]);
         fprintf (fp,"%s:\n", argv[i]);
       PrintImageLinks (1, verbose, unused, datarelocs, functionrelocs, root.childs[i - files_start], recursive, list_exports, def_output, list_imports, 0);
     }
+  }
+
+  if ((pDisableFunc) && (pRevertFunc)) {
+    pRevertFunc(oldValue); // Restore the file system redirector
   }
 
   if(isWin32s) {
