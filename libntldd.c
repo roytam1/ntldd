@@ -191,8 +191,8 @@ void ResizeArray (void **data, uint64_t *data_size, size_t sizeof_data)
 #endif
   void *new_data;
   new_size = (*data_size) > 0 ? (*data_size) * 2 : 64;
-  new_data = realloc (*data, new_size * sizeof_data);
-  memset (((unsigned char *) new_data) + (*data_size * sizeof_data), 0, (new_size - (*data_size)) * sizeof_data);
+  new_data = (unsigned char *) realloc (*data, new_size * sizeof_data);
+  memset (((unsigned char *) new_data) + (*data_size * sizeof_data), 0, (size_t)((new_size - (*data_size)) * sizeof_data));
   *data = new_data;
   *data_size = new_size;
 }
@@ -370,10 +370,10 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
       int section = -1;
       self->exports_len = ied->NumberOfFunctions;
       self->exports = (struct ExportTableItem *) malloc (sizeof (struct ExportTableItem) * self->exports_len);
-      memset (self->exports, 0, sizeof (struct ExportTableItem) * self->exports_len);
-      addrs = (DWORD *) MapPointer (soffs, soffs_len, ied->AddressOfFunctions, NULL);
-      ords = (WORD *) MapPointer (soffs, soffs_len, ied->AddressOfNameOrdinals, NULL);
-      names = (DWORD *) MapPointer (soffs, soffs_len, ied->AddressOfNames, NULL);
+      memset (self->exports, 0, (size_t)(sizeof (struct ExportTableItem) * self->exports_len));
+      addrs = (DWORD *) MapPointer (soffs, soffs_len, (DWORD)ied->AddressOfFunctions, NULL);
+      ords = (WORD *) MapPointer (soffs, soffs_len, (DWORD)ied->AddressOfNameOrdinals, NULL);
+      names = (DWORD *) MapPointer (soffs, soffs_len, (DWORD)ied->AddressOfNames, NULL);
       for (i = 0; ords && i < ied->NumberOfNames; i++)
       {
         self->exports[ords[i]].ordinal = ords[i] + ied->Base;
@@ -418,8 +418,8 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
         dll = ProcessDep (cfg, soffs, soffs_len, iid[i].Name, root, self, 0);
         if (dll == NULL)
           continue;
-        ith = (void *) MapPointer (soffs, soffs_len, iid[i].FirstThunk, NULL);
-        oith = (void *) MapPointer (soffs, soffs_len, iid[i].OriginalFirstThunk, NULL);
+        ith = (void *) MapPointer (soffs, soffs_len, (DWORD)iid[i].FirstThunk, NULL);
+        oith = (void *) MapPointer (soffs, soffs_len, (DWORD)iid[i].OriginalFirstThunk, NULL);
         for (j = 0; (impaddress = thunk_data_u1_function (ith, j, cfg)) != 0; j++)
         {
           struct ImportTableItem *imp = AddImport (self);
@@ -441,7 +441,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
           }
           else if (oith||ith)
           {
-            IMAGE_IMPORT_BY_NAME *byname = (IMAGE_IMPORT_BY_NAME *) MapPointer (soffs, soffs_len, imp->orig_address, NULL);
+            IMAGE_IMPORT_BY_NAME *byname = (IMAGE_IMPORT_BY_NAME *) MapPointer (soffs, soffs_len, (DWORD)imp->orig_address, NULL);
             if (byname != NULL)
               imp->name = strdup ((char *) byname->Name);
           }
@@ -492,7 +492,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
           }
           else if (oith)
           {
-            IMAGE_IMPORT_BY_NAME *byname = (IMAGE_IMPORT_BY_NAME *) MapPointer (soffs, soffs_len, imp->orig_address, NULL);
+            IMAGE_IMPORT_BY_NAME *byname = (IMAGE_IMPORT_BY_NAME *) MapPointer (soffs, soffs_len, (DWORD)imp->orig_address, NULL);
             if (byname != NULL)
               imp->name = strdup ((char *) byname->Name);
           }

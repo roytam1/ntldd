@@ -238,11 +238,11 @@ int main (int argc, char **argv)
 
       if (pGetSystemWow64DirectoryA) {
         char* SysWow64Dir[MAX_PATH];
-        pGetSystemWow64DirectoryA(SysWow64Dir, MAX_PATH); // Get SysWow64 path
+        pGetSystemWow64DirectoryA((LPSTR)SysWow64Dir, MAX_PATH); // Get SysWow64 path
 
         sp.count ++;
-        sp.path = realloc(sp.path, sp.count * sizeof(char*));
-        sp.path[sp.count - 1] = strdup(SysWow64Dir);
+        sp.path = (char**) realloc(sp.path, sp.count * sizeof(char*));
+        sp.path[sp.count - 1] = strdup((char*) SysWow64Dir);
       }
     }
 
@@ -337,7 +337,7 @@ Try `ntldd --help' for more information\n", argv[i]);
     struct DepTreeElement root;
     files_count = argc - files_start;
     sp.count += files_count;
-    sp.path = realloc(sp.path, sp.count * sizeof(char*));
+    sp.path = (char**) realloc(sp.path, sp.count * sizeof(char*));
     for (i = 0; i < files_count; ++i)
     {
       char *p, buff[MAX_PATH];
