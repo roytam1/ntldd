@@ -360,9 +360,7 @@ Try `ntldd --help' for more information\n", argv[i]);
       child->module = strdup (argv[i]);
       AddDep (&root, child);
       memset(&cfg, 0, sizeof(cfg));
-      cfg.machineType = -1;
       cfg.on_self = 0;
-      cfg.isPE32plus = 0;
       cfg.datarelocs = datarelocs;
       cfg.recursive = recursive;
       cfg.functionrelocs = functionrelocs;
@@ -376,7 +374,7 @@ Try `ntldd --help' for more information\n", argv[i]);
     for (i = files_start; i < argc; i++)
     {
       if (multiple)
-        fprintf (fp,"%s:\n", argv[i]);
+        fprintf (fp,"%s (%04x):\n", argv[i], (root.childs[i - files_start])->machineType);
       PrintImageLinks (1, verbose, unused, datarelocs, functionrelocs, root.childs[i - files_start], recursive, list_exports, def_output, list_imports, 0);
     }
   }

@@ -9,7 +9,7 @@ typedef __int64 int64_t;
 #endif
 #include <windows.h>
 
-#if defined(_MSC_VER) && _MSC_VER < 1500
+#if (defined(_MSC_VER) && _MSC_VER < 1500) || defined(__TINYC__)
 typedef struct _IMAGE_DELAYLOAD_DESCRIPTOR
 {
     union
@@ -184,6 +184,8 @@ struct DepTreeElement
   struct ImportTableItem *imports;
   uint64_t exports_len;
   struct ExportTableItem *exports;
+  int machineType;
+  int isPE32plus;
 };
 
 #define DEPTREE_VISITED    0x00000001
@@ -210,8 +212,6 @@ typedef struct BuildTreeConfig_t
     char ***stack;
     uint64_t *stack_len;
     uint64_t *stack_size;
-    int machineType;
-    int isPE32plus;
     SearchPaths* searchPaths;
 } BuildTreeConfig;
 

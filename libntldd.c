@@ -221,7 +221,7 @@ struct ImportTableItem *AddImport (struct DepTreeElement *self)
   return &self->imports[self->imports_len - 1];
 }
 
-int FindDep (struct DepTreeElement *root, char *name, struct DepTreeElement **result)
+int FindDep (struct DepTreeElement *root, char *name, int machineType, struct DepTreeElement **result)
 {
   int ret = -1;
   uint64_t i;
@@ -232,7 +232,7 @@ int FindDep (struct DepTreeElement *root, char *name, struct DepTreeElement **re
   root->flags |= DEPTREE_VISITED;
   for (i = 0; i < root->childs_len; i++)
   {
-    if (stricmp (root->childs[i]->module, name) == 0)
+    if (stricmp (root->childs[i]->module, name) == 0 && root->childs[i]->machineType == machineType)
     {
       if (result != NULL)
         *result = root->childs[i];
@@ -242,7 +242,7 @@ int FindDep (struct DepTreeElement *root, char *name, struct DepTreeElement **re
   }
   for (i = 0; i < root->childs_len && ret < 0; i++)
   {
-    ret = FindDep (root->childs[i], name, result);
+    ret = FindDep (root->childs[i], name, machineType, result);
   }
   root->flags &= ~DEPTREE_VISITED;
   return ret;
@@ -272,7 +272,7 @@ struct DepTreeElement *ProcessDep (BuildTreeConfig* cfg, soff_entry *soffs, int 
     if (i == 0)
       break;
   }
-  found = FindDep (root, dllname, &child);
+  found = FindDep (root, dllname, self->machineType, &child);
   if (found < 0)
   {
     child = (struct DepTreeElement *) malloc (sizeof (struct DepTreeElement));
@@ -280,6 +280,7 @@ struct DepTreeElement *ProcessDep (BuildTreeConfig* cfg, soff_entry *soffs, int 
     if (deep == 0)
     {
       child->module = strdup (dllname);
+      child->machineType = self->machineType;
       AddDep (self, child);
     }
   }
@@ -323,17 +324,17 @@ void PopStack (char ***stack, uint64_t *stack_len, uint64_t *stack_size, char *n
   (*stack_len) -= 1;
 }
 
-static uint64_t thunk_data_u1_function (void *thunk_array, DWORD index, BuildTreeConfig *cfg)
+static uint64_t thunk_data_u1_function (void *thunk_array, DWORD index, struct DepTreeElement *node)
 {
-  if (!cfg->isPE32plus)
+  if (!node->isPE32plus)
     return (uint64_t)((IMAGE_THUNK_DATA32 *) thunk_array)[index].u1.Function;
   else
     return (uint64_t)((IMAGE_THUNK_DATA64 *) thunk_array)[index].u1.Function;
 }
 
-static void *opt_header_get_dd_entry (void *opt_header, DWORD entry_type, BuildTreeConfig *cfg)
+static void *opt_header_get_dd_entry (void *opt_header, DWORD entry_type, struct DepTreeElement *node)
 {
-  if (!cfg->isPE32plus)
+  if (!node->isPE32plus)
     return &(((PIMAGE_OPTIONAL_HEADER32) opt_header)->DataDirectory[entry_type]);
   else
     return &(((PIMAGE_OPTIONAL_HEADER64) opt_header)->DataDirectory[entry_type]);
@@ -349,7 +350,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
   void *opt_header = &img->FileHeader->OptionalHeader;
   DWORD i, j;
 
-  idata = opt_header_get_dd_entry (opt_header, IMAGE_DIRECTORY_ENTRY_EXPORT, cfg);
+  idata = opt_header_get_dd_entry (opt_header, IMAGE_DIRECTORY_ENTRY_EXPORT, self);
   if (idata->Size > 0 && idata->VirtualAddress != 0)
   {
     int export_section = -2;
@@ -404,7 +405,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
     }
   }
 
-  idata = opt_header_get_dd_entry (opt_header, IMAGE_DIRECTORY_ENTRY_IMPORT, cfg);
+  idata = opt_header_get_dd_entry (opt_header, IMAGE_DIRECTORY_ENTRY_IMPORT, self);
   if (idata->Size > 0 && idata->VirtualAddress != 0)
   {
     iid = (IMAGE_IMPORT_DESCRIPTOR *) MapPointer (soffs, soffs_len,
@@ -420,7 +421,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
           continue;
         ith = (void *) MapPointer (soffs, soffs_len, (DWORD)iid[i].FirstThunk, NULL);
         oith = (void *) MapPointer (soffs, soffs_len, (DWORD)iid[i].OriginalFirstThunk, NULL);
-        for (j = 0; (impaddress = thunk_data_u1_function (ith, j, cfg)) != 0; j++)
+        for (j = 0; (impaddress = thunk_data_u1_function (ith, j, self)) != 0; j++)
         {
           struct ImportTableItem *imp = AddImport (self);
           if(!imp) continue;
@@ -428,9 +429,9 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
           imp->ordinal = -1;
           imp->is_delayed = 0;
           if (oith)
-            imp->orig_address = thunk_data_u1_function (oith, j, cfg);
+            imp->orig_address = thunk_data_u1_function (oith, j, self);
           else
-            imp->orig_address = thunk_data_u1_function (ith, j, cfg);
+            imp->orig_address = thunk_data_u1_function (ith, j, self);
           if (cfg->on_self)
           {
             imp->address = impaddress;
@@ -449,7 +450,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
       }
   }
 
-  idata = opt_header_get_dd_entry (opt_header, IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT, cfg);
+  idata = opt_header_get_dd_entry (opt_header, IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT, self);
   if (idata->Size > 0 && idata->VirtualAddress != 0)
   {
     idd = (IMAGE_DELAYLOAD_DESCRIPTOR *) MapPointer (soffs, soffs_len, idata->VirtualAddress, NULL);
@@ -474,14 +475,14 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
           ith = (void *) idd[i].ImportAddressTableRVA;
           oith = (void *) idd[i].ImportNameTableRVA;
         }
-        for (j = 0; (impaddress = thunk_data_u1_function (ith, j, cfg)) != 0; j++)
+        for (j = 0; (impaddress = thunk_data_u1_function (ith, j, self)) != 0; j++)
         {
           struct ImportTableItem *imp = AddImport (self);
           imp->dll = dll;
           imp->ordinal = -1;
           imp->is_delayed = 1;
           if (oith)
-            imp->orig_address = thunk_data_u1_function (oith, j, cfg);
+            imp->orig_address = thunk_data_u1_function (oith, j, self);
           if (cfg->on_self)
           {
             imp->address = impaddress;
@@ -500,7 +501,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
       }
   }
 
-  idata = opt_header_get_dd_entry (opt_header, IMAGE_DIRECTORY_ENTRY_IMPORT, cfg);
+  idata = opt_header_get_dd_entry (opt_header, IMAGE_DIRECTORY_ENTRY_IMPORT, self);
   if (idata->Size > 0 && idata->VirtualAddress != 0)
   {
     iid = (IMAGE_IMPORT_DESCRIPTOR *) MapPointer (soffs, soffs_len,
@@ -511,7 +512,7 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
         ProcessDep (cfg, soffs, soffs_len, iid[i].Name, root, self, 1);
   }
 
-  idata = opt_header_get_dd_entry (opt_header, IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT, cfg);
+  idata = opt_header_get_dd_entry (opt_header, IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT, self);
   if (idata->Size > 0 && idata->VirtualAddress != 0)
   {
     idd = (IMAGE_DELAYLOAD_DESCRIPTOR *) MapPointer (soffs, soffs_len, idata->VirtualAddress, NULL);
@@ -529,7 +530,7 @@ BOOL TryMapAndLoad (PCSTR name, PCSTR path, PLOADED_IMAGE loadedImage, int requi
     BOOL success = RosMapAndLoad (name, path, loadedImage, FALSE, TRUE);
     if (!success && GetLastError () == ERROR_FILE_NOT_FOUND)
         success = RosMapAndLoad (name, path, loadedImage, TRUE, TRUE);
-    if (success && requiredMachineType != -1 && (int)loadedImage->FileHeader->FileHeader.Machine != requiredMachineType)
+    if (success && requiredMachineType != 0 && (int)loadedImage->FileHeader->FileHeader.Machine != requiredMachineType)
     {
         RosUnMapAndLoad (loadedImage);
         return FALSE;
@@ -574,7 +575,7 @@ int BuildDepTree (BuildTreeConfig* cfg, char *name, struct DepTreeElement *root,
     loaded_image.Sections = (IMAGE_SECTION_HEADER *) ((char *) hmod + dos->e_lfanew + sizeof (IMAGE_NT_HEADERS));
     loaded_image.NumberOfSections = loaded_image.FileHeader->FileHeader.NumberOfSections;
     loaded_image.MappedAddress = (void *) hmod;
-    if (cfg->machineType != -1 && (int)loaded_image.FileHeader->FileHeader.Machine != cfg->machineType)
+    if (self->machineType != 0 && (int)loaded_image.FileHeader->FileHeader.Machine != self->machineType)
         return 1;
   }
   else
@@ -582,10 +583,10 @@ int BuildDepTree (BuildTreeConfig* cfg, char *name, struct DepTreeElement *root,
     success = FALSE;
     for (i = 0; i < cfg->searchPaths->count && !success; ++i)
     {
-      success = TryMapAndLoad (name, cfg->searchPaths->path[i], &loaded_image, cfg->machineType);
+      success = TryMapAndLoad (name, cfg->searchPaths->path[i], &loaded_image, self->machineType);
     }
     if (!success)
-        success = TryMapAndLoad (name, NULL, &loaded_image, cfg->machineType);
+        success = TryMapAndLoad (name, NULL, &loaded_image, self->machineType);
     if (!success)
     {
       self->flags |= DEPTREE_UNRESOLVED;
@@ -594,10 +595,10 @@ int BuildDepTree (BuildTreeConfig* cfg, char *name, struct DepTreeElement *root,
     if (self->resolved_module == NULL)
       self->resolved_module = strdup (loaded_image.ModuleName ? loaded_image.ModuleName : name);
   }
-  if (cfg->machineType == -1) {
+  {
     IMAGE_OPTIONAL_HEADER32 *OptionalHeader = (IMAGE_OPTIONAL_HEADER32 *)((char *)loaded_image.FileHeader + sizeof(IMAGE_FILE_HEADER) + sizeof(DWORD));
-    cfg->machineType = (int)loaded_image.FileHeader->FileHeader.Machine;
-    cfg->isPE32plus = OptionalHeader->Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC;
+    self->machineType = (int)loaded_image.FileHeader->FileHeader.Machine;
+    self->isPE32plus = OptionalHeader->Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC;
   }
   img = &loaded_image;
 
