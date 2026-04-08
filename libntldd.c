@@ -53,13 +53,14 @@ BOOL WINAPI RosMapAndLoad(PCSTR pszImageName, PCSTR pszDllPath, PLOADED_IMAGE pL
                        BOOL bDotDll, BOOL bReadOnly)
 {
     CHAR szFileName[MAX_PATH];
+    LPSTR pszFilePart;
     HANDLE hFile = INVALID_HANDLE_VALUE;
     HANDLE hFileMapping = NULL;
     PVOID mapping = NULL;
     PIMAGE_NT_HEADERS pNtHeader = NULL;
 
     if (!SearchPathA(pszDllPath, pszImageName, bDotDll ? ".DLL" : ".EXE",
-                     sizeof(szFileName), szFileName, NULL))
+                     sizeof(szFileName), szFileName, &pszFilePart))
     {
         SetLastError(ERROR_FILE_NOT_FOUND);
         goto Error;
