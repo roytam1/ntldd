@@ -34,6 +34,8 @@ MSDN Magazine articles
 #include <string.h>
 #include <stdio.h>
 
+extern FILE *fp; // in ntldd.c
+
 /* imagehlp functions from ReactOS */
 PIMAGE_NT_HEADERS RosRtlImageNtHeader(void *data)
 {
@@ -49,29 +51,67 @@ PIMAGE_NT_HEADERS RosRtlImageNtHeader(void *data)
     return NtHeaders;
 }
 
-BOOL WINAPI RosMapAndLoad(PCSTR pszImageName, PCSTR pszDllPath, PLOADED_IMAGE pLoadedImage,
+BOOL WINAPI MyMapAndLoad(PCSTR pszImageName, PCSTR pszDllPath, PLOADED_IMAGE pLoadedImage,
                        BOOL bDotDll, BOOL bReadOnly)
 {
+    static DWORD winver = 0;
+    static DWORD isWin32s = FALSE;
+
     CHAR szFileName[MAX_PATH];
-    LPSTR pszFilePart;
+    CHAR szDLLPath[MAX_PATH];
+    LPSTR pszOpenImageName, pszTestDLLPath, pszFilePart;
     HANDLE hFile = INVALID_HANDLE_VALUE;
     HANDLE hFileMapping = NULL;
     PVOID mapping = NULL;
     PIMAGE_NT_HEADERS pNtHeader = NULL;
+    DWORD iPathLen = 0;
+    LPSTR pszw32scombName = "w32scomb.dll";
 
-    if (!SearchPathA(pszDllPath, pszImageName, bDotDll ? ".DLL" : ".EXE",
-                     sizeof(szFileName), szFileName, &pszFilePart))
-    {
-        SetLastError(ERROR_FILE_NOT_FOUND);
-        goto Error;
+    szFileName[0] = 0;
+    szDLLPath[0] = 0;
+
+    if(!winver) {
+        winver = GetVersion();
+        isWin32s = ((winver > 0x80000000) && (LOBYTE(LOWORD(winver)) != 4));
     }
 
-    hFile = CreateFileA(szFileName,
+    pszOpenImageName = pszImageName;
+    pszTestDLLPath = pszDllPath;
+TryAgain:
+    hFile = CreateFileA(pszOpenImageName,
                         GENERIC_READ | (bReadOnly ? 0 : GENERIC_WRITE),
                         FILE_SHARE_READ,
                         NULL, OPEN_EXISTING, 0, NULL);
     if (hFile == INVALID_HANDLE_VALUE)
     {
+        if (!iPathLen) {
+SearchAgain:
+            iPathLen = SearchPathA(pszTestDLLPath, pszOpenImageName, bDotDll ? ".DLL" : ".EXE",
+                     sizeof(szFileName), szFileName, &pszFilePart);
+            if(iPathLen && iPathLen < MAX_PATH) {
+                pszOpenImageName = szFileName;
+                goto TryAgain;
+            }
+        }
+        if (isWin32s) {
+            if(szDLLPath[0] == 0) {
+                GetSystemDirectory(szDLLPath,MAX_PATH);
+                strcat(szDLLPath,"\\WIN32S");
+                pszTestDLLPath = szDLLPath;
+                goto SearchAgain;
+            }
+            if((pszOpenImageName != pszw32scombName) &&
+               (stricmp(pszImageName,"kernel32.dll") == 0 ||
+                stricmp(pszImageName,"user32.dll") == 0 ||
+                stricmp(pszImageName,"gdi32.dll") == 0 ||
+                stricmp(pszImageName,"ntdll.dll") == 0 ||
+                stricmp(pszImageName,"advapi32.dll") == 0)) {
+                iPathLen = 0;
+                pszOpenImageName = pszw32scombName;
+                goto TryAgain;
+            }
+        }
+        SetLastError(ERROR_FILE_NOT_FOUND);
         goto Error;
     }
 
@@ -528,9 +568,9 @@ static void BuildDepTree32or64 (LOADED_IMAGE *img, BuildTreeConfig* cfg, struct 
 
 BOOL TryMapAndLoad (PCSTR name, PCSTR path, PLOADED_IMAGE loadedImage, int requiredMachineType)
 {
-    BOOL success = RosMapAndLoad (name, path, loadedImage, FALSE, TRUE);
+    BOOL success = MyMapAndLoad (name, path, loadedImage, FALSE, TRUE);
     if (!success && GetLastError () == ERROR_FILE_NOT_FOUND)
-        success = RosMapAndLoad (name, path, loadedImage, TRUE, TRUE);
+        success = MyMapAndLoad (name, path, loadedImage, TRUE, TRUE);
     if (success && requiredMachineType != 0 && (int)loadedImage->FileHeader->FileHeader.Machine != requiredMachineType)
     {
         RosUnMapAndLoad (loadedImage);

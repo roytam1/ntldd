@@ -224,7 +224,7 @@ int main (int argc, char **argv)
   fp = (FILE*)stdout;
 
   winver = GetVersion();
-  isWin32s = ((winver > 0x80000000) && (LOBYTE(LOWORD(winver)) == 3));
+  isWin32s = ((winver > 0x80000000) && (LOBYTE(LOWORD(winver)) != 4));
 
   hKernel = GetModuleHandle(TEXT("kernel32.dll"));
   pIsWow64Func = (tW64P) GetProcAddress(hKernel, "IsWow64Process");
