@@ -51,7 +51,7 @@ tFSRevert pRevertFunc = NULL;
 tGetSystemWow64DirectoryA pGetSystemWow64DirectoryA = NULL;
 
 BOOL bIsWow64 = FALSE;
-char* cTextEditor[MAX_PATH];
+char cTextEditor[MAX_PATH];
 int use_text_editor = 0;
 
 FILE *fp;
