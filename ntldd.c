@@ -51,8 +51,14 @@ tFSRevert pRevertFunc = NULL;
 tGetSystemWow64DirectoryA pGetSystemWow64DirectoryA = NULL;
 
 BOOL bIsWow64 = FALSE;
+char* cTextEditor[MAX_PATH];
+int use_text_editor = 0;
 
 FILE *fp;
+
+void changeOutputDest() {
+  fp = fopen("ntldd.txt","w");
+}
 
 void printversion(int print_copyright)
 {
@@ -96,6 +102,7 @@ OPTIONS:\n\
 -r, --function-relocs Does not work\n\
 -R, --recursive       Lists dependencies recursively,\n\
                         eliminating duplicates\n\
+-T, --text-editor     Use externel editor for display output (always on in Win32s)\n\
 -D, --search-dir      Additional search directory\n\
 -e, --list-exports    Lists exports of a module (single file only)\n\
 -i, --list-imports    Lists imports of modules\n\
@@ -219,6 +226,7 @@ int main (int argc, char **argv)
 
   SearchPaths sp;
   memset(&sp, 0, sizeof (sp));
+  memset(cTextEditor, 0, MAX_PATH);
   sp.path = (char**) calloc (1, sizeof (char*));
 
   fp = (FILE*)stdout;
@@ -252,7 +260,9 @@ int main (int argc, char **argv)
   }
 
   if(isWin32s) {
-    fp = fopen("ntldd.txt","w");
+    use_text_editor = 1;
+    strcpy(cTextEditor, "notepad");
+    changeOutputDest();
   }
 
   for (i = 1; i < argc; i++)
@@ -280,6 +290,15 @@ int main (int argc, char **argv)
       list_imports = 1;
     else if (strcmp (argv[i], "--def-output") == 0)
       def_output = 1;
+    else if ((strcmp (argv[i], "-T") == 0 || strcmp (argv[i], "--text-editor") == 0) && i < argc - 1)
+    {
+      strncpy(cTextEditor, argv[i+1], MAX_PATH - 10/*" ntldd.txt"*/);
+      if(!use_text_editor) {
+        use_text_editor = 1;
+        changeOutputDest();
+      }
+      i++;
+    }
     else if ((strcmp (argv[i], "-D") == 0 || strcmp (argv[i], "--search-dir") == 0) && i < argc - 1)
     {
       char *sep, *add_dirs = argv[i+1];
@@ -383,10 +402,11 @@ Try `ntldd --help' for more information\n", argv[i]);
     pRevertFunc(oldValue); // Restore the file system redirector
   }
 
-  if(isWin32s) {
+  if(use_text_editor) {
     fclose(fp);
-    WinExec("notepad ntldd.txt", SW_NORMAL);
-    Sleep(3000);
+    strcat(cTextEditor, " ntldd.txt");
+    WinExec(cTextEditor, SW_NORMAL);
+    Sleep(5000);
     remove("ntldd.txt");
   }
 
