@@ -59,7 +59,8 @@ BOOL WINAPI MyMapAndLoad(PCSTR pszImageName, PCSTR pszDllPath, PLOADED_IMAGE pLo
 
     CHAR szFileName[MAX_PATH];
     CHAR szDLLPath[MAX_PATH];
-    LPSTR pszOpenImageName, pszTestDLLPath, pszFilePart;
+    LPCSTR pszOpenImageName, pszTestDLLPath;
+    LPSTR pszFilePart;
     HANDLE hFile = INVALID_HANDLE_VALUE;
     HANDLE hFileMapping = NULL;
     PVOID mapping = NULL;
