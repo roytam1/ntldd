@@ -34,10 +34,14 @@ MSDN Magazine articles
 
 #include "libntldd.h"
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER)
+#define I64_TYPE __int64
 #define I64PF "I64"
+#define VAL_I64(x) x ## i64
 #else
+#define I64_TYPE long long
 #define I64PF "ll"
+#define VAL_I64(x) x ## LL
 #endif
 
 typedef BOOL (WINAPI *tW64P)(HANDLE, PBOOL);
@@ -55,6 +59,32 @@ char cTextEditor[MAX_PATH];
 int use_text_editor = 0;
 
 FILE *fp;
+
+char* i64tox(I64_TYPE i, char buf[32], int pad) {
+#ifndef LONGLONG_MIN
+#define LONGLONG_MIN VAL_I64(0x8000000000000000)
+#define LONGLONG_MAX VAL_I64(0x7FFFFFFFFFFFFFFF)
+#endif
+
+    char* p = buf + 31;
+    I64_TYPE n;
+    int j = 0;
+    char *digits="0123456789ABCDEF";
+    *p = '\0';                               // terminate string
+    if (i == 0) { *(--p) = '0'; ++j;/*return p;*/ }  // handle 0
+    n = (i < 0) ? -i : i;
+    if (n == LONGLONG_MIN) n = LONGLONG_MAX;       // handle MIN, offset by 1
+
+    for (; ; ++j) {
+        *--p = *(digits + n % 16);                 // insert digit
+        if ((n /= 16) <= 0) break;
+    }
+
+    while(j < pad-1) *--p = '0',++j;
+    if (i < 0) { *--p = '-'; }
+    return p;
+}
+
 
 void changeOutputDest() {
   fp = fopen("ntldd.txt","w");
@@ -177,9 +207,13 @@ EXPORTS\n", mybasename(self->module));
     for (i = 0; i < self->imports_len; i++)
     {
       struct ImportTableItem *item = &self->imports[i];
+      char oaddrx[32], addrx[32];
+      char *p_oaddrx, *p_addrx;
 
-      fprintf (fp,"\t%*s%" I64PF "X %" I64PF "X %3d %s%s %s%s\n", depth, depth > 0 ? " " : "",
-          item->orig_address, item->address, item->ordinal,
+      p_oaddrx = i64tox(item->orig_address, oaddrx, 8);
+      p_addrx = i64tox(item->address, addrx, 8);
+      fprintf (fp,"\t%*s%s %s %3d %s%s %s%s\n", depth, depth > 0 ? " " : "",
+          p_oaddrx, p_addrx, item->ordinal,
           item->mapped ? "" : "<UNRESOLVED>",
           item->dll == NULL ? "<MODULE MISSING>" : item->dll->module ? item->dll->module : "<NULL>",
           item->name ? item->name : (item->ordinal != -1 ? "(imported by ordinal)" : "<NULL>"),
