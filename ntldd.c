@@ -36,12 +36,16 @@ MSDN Magazine articles
 
 #if defined(_MSC_VER)
 #define I64_TYPE __int64
+#define U64_TYPE unsigned __int64
 #define I64PF "I64"
 #define VAL_I64(x) x ## i64
+#define VAL_UI64(x) x ## ui64
 #else
 #define I64_TYPE long long
+#define U64_TYPE unsigned long long
 #define I64PF "ll"
 #define VAL_I64(x) x ## LL
+#define VAL_UI64(x) x ## ULL
 #endif
 
 typedef BOOL (WINAPI *tW64P)(HANDLE, PBOOL);
@@ -60,20 +64,15 @@ int use_text_editor = 0;
 
 FILE *fp;
 
-char* i64tox(I64_TYPE i, char buf[32], int pad) {
-#ifndef LONGLONG_MIN
-#define LONGLONG_MIN VAL_I64(0x8000000000000000)
-#define LONGLONG_MAX VAL_I64(0x7FFFFFFFFFFFFFFF)
-#endif
+char* u64tox(U64_TYPE i, char buf[32], int pad) {
 
     char* p = buf + 31;
-    I64_TYPE n;
+    U64_TYPE n;
     int j = 0;
     char *digits="0123456789ABCDEF";
     *p = '\0';                               // terminate string
     if (i == 0) { *(--p) = '0'; ++j;/*return p;*/ }  // handle 0
-    n = (i < 0) ? -i : i;
-    if (n == LONGLONG_MIN) n = LONGLONG_MAX;       // handle MIN, offset by 1
+    n = i;
 
     for (; ; ++j) {
         *--p = *(digits + n % 16);                 // insert digit
@@ -81,7 +80,6 @@ char* i64tox(I64_TYPE i, char buf[32], int pad) {
     }
 
     while(j < pad-1) *--p = '0',++j;
-    if (i < 0) { *--p = '-'; }
     return p;
 }
 
@@ -210,8 +208,8 @@ EXPORTS\n", mybasename(self->module));
       char oaddrx[32], addrx[32];
       char *p_oaddrx, *p_addrx;
 
-      p_oaddrx = i64tox(item->orig_address, oaddrx, 8);
-      p_addrx = i64tox(item->address, addrx, 8);
+      p_oaddrx = u64tox(item->orig_address, oaddrx, 8);
+      p_addrx = u64tox(item->address, addrx, 8);
       fprintf (fp,"\t%*s%s %s %3d %s%s %s%s\n", depth, depth > 0 ? " " : "",
           p_oaddrx, p_addrx, item->ordinal,
           item->mapped ? "" : "<UNRESOLVED>",
