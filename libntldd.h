@@ -9,7 +9,7 @@ typedef __int64 int64_t;
 #endif
 #include <windows.h>
 
-#if (defined(_MSC_VER) && _MSC_VER < 1500) || defined(__TINYC__)
+#if (defined(_MSC_VER) && _MSC_VER < 1500) || defined(__TINYC__) || defined(OLDSDK)
 typedef struct _IMAGE_DELAYLOAD_DESCRIPTOR
 {
     union
@@ -32,7 +32,7 @@ typedef struct _IMAGE_DELAYLOAD_DESCRIPTOR
 } IMAGE_DELAYLOAD_DESCRIPTOR, *PIMAGE_DELAYLOAD_DESCRIPTOR;
 #endif
 
-#if defined(_MSC_VER) && _MSC_VER < 1200
+#if (defined(_MSC_VER) && _MSC_VER < 1200) || defined(OLDSDK)
 typedef struct _IMAGE_THUNK_DATA64 {
     union {
         uint64_t ForwarderString;
