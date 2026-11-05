@@ -21,6 +21,10 @@
 #define WM_MOUSEWHEEL 0x020A
 #endif
 
+#ifndef UINT_PTR
+#define UINT_PTR UINT
+#endif
+
 #ifndef GetXParam
 #define GetXParam(lp) ((int)(short)LOWORD(lp))
 #define GetYParam(lp) ((int)(short)HIWORD(lp))
@@ -151,6 +155,39 @@ static void FreeDocument(Document *doc)
     }
     free(doc);
 }
+
+/* DragQueryFile wrapper */
+#ifdef __TINYC__
+#define HDROP HANDLE
+#endif
+
+typedef UINT (WINAPI *apiDragQueryFile)(HDROP, UINT, LPSTR, UINT);
+UINT WINAPI MyDragQueryFile_fallback(HDROP hDrop, UINT iFile, LPSTR lpszFile, UINT cch) {
+	return 0;
+}
+
+UINT WINAPI MyDragQueryFile_init(HDROP hDrop, UINT iFile, LPSTR lpszFile, UINT cch);
+static apiDragQueryFile MyDragQueryFile = MyDragQueryFile_init;
+
+UINT WINAPI MyDragQueryFile_init(HDROP hDrop, UINT iFile, LPSTR lpszFile, UINT cch) {
+	HMODULE hShell32;
+	if( MyDragQueryFile == MyDragQueryFile_init ) {
+		hShell32 = GetModuleHandleA("SHELL32.DLL");
+		// Try new name first
+		MyDragQueryFile = (apiDragQueryFile)GetProcAddress(hShell32, "DragQueryFileA");
+		if( !(MyDragQueryFile) ) {
+			// if not found, try old name
+			MyDragQueryFile = (apiDragQueryFile)GetProcAddress(hShell32, "DragQueryFile");
+			if( !(MyDragQueryFile) ) {
+				MyDragQueryFile = MyDragQueryFile_fallback;
+			}
+		}
+	}
+
+	return MyDragQueryFile( hDrop, iFile, lpszFile, cch );
+
+}
+/* end of DragQueryFile wrapper */
 
 /* ------------------------------------------------------------------ */
 /* Visible tree management                                            */
@@ -775,6 +812,21 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
         }
         return 0;
     }
+    case WM_DROPFILES: {
+        HDROP hDrop = (HDROP)wParam;
+        char szDropFile[MAX_PATH];
+
+        // Get the count of dropped files (we only care about the first one)
+        if (MyDragQueryFile(hDrop, 0, szDropFile, MAX_PATH)) {
+            SetForegroundWindow(hwnd);
+            LoadDocument(szDropFile);
+        }
+
+        // Must release the handle allocated by the shell
+        DragFinish(hDrop);
+        return 0;
+    }
+
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
@@ -829,7 +881,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrev, LPSTR lpCmdLine, int nC
     wc.lpszClassName = "NtlddGuiMain";
     RegisterClassA(&wc);
 
-    hwnd = CreateWindowExA(0, "NtlddGuiMain", "ntlddgui",
+    hwnd = CreateWindowExA(WS_EX_ACCEPTFILES, "NtlddGuiMain", "ntlddgui",
         WS_OVERLAPPEDWINDOW | WS_VISIBLE,
         CW_USEDEFAULT, CW_USEDEFAULT, 900, 600,
         NULL, NULL, hInstance, NULL);
