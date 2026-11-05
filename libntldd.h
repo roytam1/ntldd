@@ -191,6 +191,7 @@ struct DepTreeElement
 #define DEPTREE_VISITED    0x00000001
 #define DEPTREE_UNRESOLVED 0x00000002
 #define DEPTREE_PROCESSED  0x00000004
+#define DEPTREE_EXPANDED   0x00000008
 
 int ClearDepStatus (struct DepTreeElement *self, uint64_t flags);
 
