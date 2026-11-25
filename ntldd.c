@@ -130,6 +130,8 @@ OPTIONS:\n\
 -r, --function-relocs Does not work\n\
 -R, --recursive       Lists dependencies recursively,\n\
                         eliminating duplicates\n\
+-M, --multiple        Lists dependencies recursively, keeping repeated\n\
+                        and circular dependencies (implies -R)\n\
 -T, --text-editor     Use externel editor for display output (always on in Win32s)\n\
 -D, --search-dir      Additional search directory\n\
 -e, --list-exports    Lists exports of a module (single file only)\n\
@@ -246,6 +248,7 @@ int main (int argc, char **argv)
   int skip = 0;
   int files = 0;
   int recursive = 0;
+  int keep_multiple = 0;
   int list_exports = 0;
   int list_imports = 0;
   int def_output = 0;
@@ -314,6 +317,12 @@ int main (int argc, char **argv)
     else if (strcmp (argv[i], "-R") == 0 || 
         strcmp (argv[i], "--recursive") == 0)
       recursive = 1;
+    else if (strcmp (argv[i], "-M") == 0 ||
+        strcmp (argv[i], "--multiple") == 0)
+    {
+      keep_multiple = 1;
+      recursive = 1;
+    }
     else if (strcmp (argv[i], "-e") == 0 || 
         strcmp (argv[i], "--list-exports") == 0)
       list_exports = 1;
@@ -414,6 +423,7 @@ Try `ntldd --help' for more information\n", argv[i]);
       cfg.on_self = 0;
       cfg.datarelocs = datarelocs;
       cfg.recursive = recursive;
+      cfg.multiple = keep_multiple;
       cfg.functionrelocs = functionrelocs;
       cfg.stack = &stack;
       cfg.stack_len = &stack_len;

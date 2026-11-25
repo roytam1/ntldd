@@ -209,6 +209,7 @@ typedef struct BuildTreeConfig_t
     int datarelocs;
     int functionrelocs;
     int recursive;
+    int multiple; /* keep one tree edge per parent instead of deduplicating globally */
     int on_self;
     char ***stack;
     uint64_t *stack_len;

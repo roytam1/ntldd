@@ -290,6 +290,47 @@ int FindDep (struct DepTreeElement *root, char *name, int machineType, struct De
   return ret;
 }
 
+/* Like FindDep(), but only looks at the direct children of one module.
+ * Used by the "multiple" mode, where every parent keeps its own edge to a
+ * shared DLL instead of reusing the node created by some other parent. */
+static int FindDirectDep (struct DepTreeElement *self, char *name, int machineType, struct DepTreeElement **result)
+{
+  uint64_t i;
+  for (i = 0; i < self->childs_len; i++)
+  {
+    if (self->childs[i]->module != NULL &&
+        stricmp (self->childs[i]->module, name) == 0 &&
+        self->childs[i]->machineType == machineType)
+    {
+      if (result != NULL)
+        *result = self->childs[i];
+      return (self->childs[i]->flags & DEPTREE_UNRESOLVED) ? 1 : 0;
+    }
+  }
+  return -1;
+}
+
+/* Find the first already-parsed node for a module. Repeated occurrences in
+ * "multiple" mode are left as leaves, but still need the export table of the
+ * original node so that imports pointing at them can be resolved. */
+static struct DepTreeElement *FindProcessedDep (struct DepTreeElement *root, char *name, int machineType, struct DepTreeElement *exclude)
+{
+  uint64_t i;
+  struct DepTreeElement *found;
+  if (root == NULL || root == exclude)
+    return NULL;
+  if ((root->flags & DEPTREE_PROCESSED) && root->module != NULL &&
+      stricmp (root->module, name) == 0 && root->machineType == machineType)
+    return root;
+  for (i = 0; i < root->childs_len; i++)
+  {
+    found = FindProcessedDep (root->childs[i], name, machineType, exclude);
+    if (found != NULL)
+      return found;
+  }
+  return NULL;
+}
+
 int BuildDepTree (BuildTreeConfig* cfg, char *name, struct DepTreeElement *root, struct DepTreeElement *self);
 
 struct DepTreeElement *ProcessDep (BuildTreeConfig* cfg, soff_entry *soffs, int soffs_len, DWORD name, struct DepTreeElement *root, struct DepTreeElement *self, int deep)
@@ -307,14 +348,22 @@ struct DepTreeElement *ProcessDep (BuildTreeConfig* cfg, soff_entry *soffs, int 
     return NULL;
   }
 #endif
-  for (i = (int64_t)*cfg->stack_len - 1; i >= 0; i--)
+  /* In "multiple" mode a module already seen somewhere else still gets its
+   * own edge under this parent; BuildDepTree() will turn it into a leaf. */
+  if (!cfg->multiple)
   {
-    if ((*cfg->stack)[i] && stricmp ((*cfg->stack)[i], dllname) == 0)
-      return NULL;
-    if (i == 0)
-      break;
+    for (i = (int64_t)*cfg->stack_len - 1; i >= 0; i--)
+    {
+      if ((*cfg->stack)[i] && stricmp ((*cfg->stack)[i], dllname) == 0)
+        return NULL;
+      if (i == 0)
+        break;
+    }
   }
-  found = FindDep (root, dllname, self->machineType, &child);
+  if (cfg->multiple)
+    found = FindDirectDep (self, dllname, self->machineType, &child);
+  else
+    found = FindDep (root, dllname, self->machineType, &child);
   if (found < 0)
   {
     child = (struct DepTreeElement *) malloc (sizeof (struct DepTreeElement));
@@ -326,7 +375,7 @@ struct DepTreeElement *ProcessDep (BuildTreeConfig* cfg, soff_entry *soffs, int 
       AddDep (self, child);
     }
   }
-  if (deep == 1)
+  if (deep == 1 && child != NULL)
   {
     BuildDepTree (cfg, dllname, root, child);
   }
@@ -591,6 +640,38 @@ int BuildDepTree (BuildTreeConfig* cfg, char *name, struct DepTreeElement *root,
   DWORD i, j;
   int soffs_len;
   soff_entry *soffs;
+
+  if (cfg->multiple)
+  {
+    uint64_t s;
+    struct DepTreeElement *canonical;
+    /* The stack is never popped, so it is the set of all modules already
+     * seen in this tree. A repeated module is kept as a leaf under this
+     * parent: its subtree is not expanded again, but its export data is
+     * borrowed from the original node so imports still resolve. */
+    for (s = 0; s < *cfg->stack_len; s++)
+    {
+      if ((*cfg->stack)[s] && stricmp ((*cfg->stack)[s], name) == 0)
+      {
+        canonical = FindProcessedDep (root, name, self->machineType, self);
+        if (canonical != NULL)
+        {
+          self->machineType = canonical->machineType;
+          self->isPE32plus = canonical->isPE32plus;
+          self->mapped_address = canonical->mapped_address;
+          if (canonical->resolved_module != NULL)
+            self->resolved_module = strdup (canonical->resolved_module);
+          if (canonical->export_module != NULL)
+            self->export_module = strdup (canonical->export_module);
+          self->exports_len = canonical->exports_len;
+          self->exports = canonical->exports;
+          self->flags |= (canonical->flags & DEPTREE_UNRESOLVED);
+        }
+        self->flags |= DEPTREE_PROCESSED;
+        return 0;
+      }
+    }
+  }
 
   if (self->flags & DEPTREE_PROCESSED)
   {

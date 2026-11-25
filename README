@@ -4,7 +4,7 @@ will give you a list of libraries a library or executable depends upon.
 Pros:
  * Knows about delayed loading.
  * Can list dependencies recursively (like depends.exe does, but without
-duplicating entries)
+duplicating entries), or keep repeated/circular dependencies with -M
  * Free software
  * Output tries to mimic ldd (might be usable as a drop-in replacement for ldd)
 
